@@ -22,10 +22,6 @@ const (
 	staticFilesRoot = "."
 )
 
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
 type apiConfig struct {
 	fileServerHits atomic.Int32
 	db             *database.Queries
@@ -71,12 +67,14 @@ func main() {
 
 	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
+
 	mux.HandleFunc("GET /api/healthz", checkReadiness)
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 	mux.HandleFunc("GET /api/login", cfg.handlerLogin)
-	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
+
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.handlerGetChirpByID)
+	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -139,46 +137,24 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		result := ErrorResponse{Error: "Something went wrong"}
-		dat, err := json.Marshal(&result)
-		if err != nil {
-			log.Fatalf("Could not even marshal an error json: %s", err)
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(dat)
+		respondWithError(w, "Something went wrong", http.StatusBadRequest)
 		return
 	}
 	hashedPassword, err := auth.HashPassword(params.Password)
 	if err != nil {
-		result := ErrorResponse{Error: "invalid password, password could not be hashed"}
-		dat, err := json.Marshal(&result)
-		if err != nil {
-			log.Fatalf("Could not even marshal an error json: %s", err)
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(dat)
+		respondWithError(w, "invalid password (or password could not be hashed)", http.StatusInternalServerError)
 		return
 	}
+
 	createUserParams := database.CreateUserParams{Email: params.Email, HashedPassword: hashedPassword}
 	user, err := cfg.db.CreateUser(req.Context(), createUserParams)
 	if err != nil {
-		result := ErrorResponse{Error: "Something went wrong"}
-		dat, err := json.Marshal(&result)
-		if err != nil {
-			log.Fatalf("Could not even marshal an error json: %s", err)
-		}
-
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(dat)
+		respondWithError(w, "Something went wrong", http.StatusBadRequest)
 		return
 	}
+
 	userCreated := User{ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt, Email: user.Email}
-	dat, err := json.Marshal(&userCreated)
-	if err != nil {
-		log.Fatal("Could not even marshal a valid user")
-	}
-	w.WriteHeader(http.StatusCreated)
-	w.Write(dat)
+	respondWithJSON(w, userCreated, http.StatusCreated)
 	return
 }
 
@@ -205,27 +181,13 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 	err := decoder.Decode(&params)
 
 	if err != nil {
-		result := ErrorResponse{Error: "Something went wrong"}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatal("Could not even marshal error result")
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusInternalServerError) // 500
-		w.Write(dat)
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
 	// validate the chirp
 	if len(params.Body) > 140 {
-		result := response{Valid: false}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatal("Could not marshal invalid result")
-		}
-		w.WriteHeader(http.StatusBadRequest) // 400
-		w.Write(dat)
+		respondWithJSON(w, response{Valid: false}, http.StatusBadRequest)
 		return
 	}
 
@@ -238,41 +200,25 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 	}
 	chirp, err := cfg.db.CreateChirp(req.Context(), chirpParams)
 	if err != nil {
-		result := ErrorResponse{Error: "Could not create chirp"}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatalf("could not even marshal an error json: %s", err)
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(dat)
+		respondWithError(w, "Could not create chirp", http.StatusInternalServerError)
+		return
 	}
-	result := response{
+
+	respondWithJSON(w, response{
 		Valid:     true,
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 		Body:      chirp.Body,
 		UserID:    chirp.UserID,
-	}
-	dat, err := json.Marshal(result)
-	if err != nil {
-		log.Fatal("Could not marshal valid result")
-	}
-	w.WriteHeader(http.StatusCreated)
-	w.Write(dat)
+	}, http.StatusCreated)
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request) {
 	type response = []Chirp
 	chirps, err := cfg.db.GetAllChirps(req.Context())
 	if err != nil {
-		result := ErrorResponse{Error: "could not get all chirps"}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatal("Could not marshal error result in handlerGetAllChirps")
-		}
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(dat)
+		respondWithError(w, "Could not get all chirps", http.StatusInternalServerError)
 		return
 	}
 	result := response{}
@@ -285,12 +231,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 			UserID:    chirp.UserID,
 		})
 	}
-	dat, err := json.Marshal(result)
-	if err != nil {
-		log.Fatal("Could not marshal chirps in handlerGetChirps")
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(dat)
+	respondWithJSON(w, result, http.StatusOK)
 }
 
 func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Request) {
@@ -299,42 +240,24 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 
 	chirp_id, err := uuid.Parse(req.PathValue("chirp_id"))
 	if err != nil {
-		result := ErrorResponse{Error: "invalid chirp ID"}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatal("could not marshal error in handleGetChirpByID")
-		}
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(dat)
+		respondWithError(w, "Invalid chirp ID", http.StatusBadRequest)
 		return
 	}
 
 	chirp, err := cfg.db.GetChirp(req.Context(), chirp_id)
 	if err != nil {
-		result := ErrorResponse{Error: "chirp not found"}
-		dat, err := json.Marshal(result)
-		if err != nil {
-			log.Fatal("could not marshal error response in handlerGetChirpByID")
-		}
-		w.WriteHeader(http.StatusNotFound)
-		w.Write(dat)
+		respondWithError(w, "Chirp not found", http.StatusNotFound)
 		return
 	}
 
-	result := response{
+	respondWithJSON(w, response{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
 		Body:      chirp.Body,
 		UserID:    chirp.UserID,
 		Valid:     true,
-	}
-	dat, err := json.Marshal(result)
-	if err != nil {
-		log.Fatal("Could not marshal valid and found chirp in handlerGetChirpByID")
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(dat)
+	}, http.StatusOK)
 }
 
 func censor(text string) string {

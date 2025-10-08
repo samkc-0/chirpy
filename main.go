@@ -70,7 +70,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", checkReadiness)
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
-	mux.HandleFunc("GET /api/login", cfg.handlerLogin)
+	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.handlerGetChirpByID)
@@ -164,7 +164,37 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 		Password string `json:"password"`
 	}
 	type result = User
-	w.WriteHeader(http.StatusOK)
+
+	decoder := json.NewDecoder(req.Body)
+	params := parameters{}
+	if err := decoder.Decode(&params); err != nil {
+		respondWithError(w, "malformed login form", http.StatusBadRequest)
+		return
+	}
+	user, err := cfg.db.GetUserByEmail(req.Context(), params.Email)
+	if err != nil {
+		respondWithError(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	valid_password, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
+
+	if err != nil {
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
+	if !valid_password {
+		respondWithError(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	respondWithJSON(w, User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Email:     user.Email,
+	}, http.StatusOK)
 }
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Request) {
@@ -178,9 +208,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 
 	params := parameters{}
 	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&params)
-
-	if err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}

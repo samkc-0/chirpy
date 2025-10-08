@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/auth"
 	"chirpy/internal/database"
 	"database/sql"
 	"encoding/json"
@@ -72,6 +73,7 @@ func main() {
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
 	mux.HandleFunc("GET /api/healthz", checkReadiness)
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+	mux.HandleFunc("GET /api/login", cfg.handlerLogin)
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.handlerGetChirpByID)
@@ -125,8 +127,10 @@ func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, req *http.Request) {
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
+
 	type result struct {
 		User User `json:"user"`
 	}
@@ -144,7 +148,19 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 		w.Write(dat)
 		return
 	}
-	user, err := cfg.db.CreateUser(req.Context(), params.Email)
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+		result := ErrorResponse{Error: "invalid password, password could not be hashed"}
+		dat, err := json.Marshal(&result)
+		if err != nil {
+			log.Fatalf("Could not even marshal an error json: %s", err)
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(dat)
+		return
+	}
+	createUserParams := database.CreateUserParams{Email: params.Email, HashedPassword: hashedPassword}
+	user, err := cfg.db.CreateUser(req.Context(), createUserParams)
 	if err != nil {
 		result := ErrorResponse{Error: "Something went wrong"}
 		dat, err := json.Marshal(&result)
@@ -164,6 +180,15 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 	w.WriteHeader(http.StatusCreated)
 	w.Write(dat)
 	return
+}
+
+func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	type result = User
+	w.WriteHeader(http.StatusOK)
 }
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Request) {
@@ -271,6 +296,7 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Request) {
 
 	type response = Chirp
+
 	chirp_id, err := uuid.Parse(req.PathValue("chirp_id"))
 	if err != nil {
 		result := ErrorResponse{Error: "invalid chirp ID"}
@@ -282,6 +308,7 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 		w.Write(dat)
 		return
 	}
+
 	chirp, err := cfg.db.GetChirp(req.Context(), chirp_id)
 	if err != nil {
 		result := ErrorResponse{Error: "chirp not found"}
@@ -293,6 +320,7 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 		w.Write(dat)
 		return
 	}
+
 	result := response{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
@@ -308,6 +336,7 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 	w.WriteHeader(http.StatusOK)
 	w.Write(dat)
 }
+
 func censor(text string) string {
 	taboos := []string{"kerfuffle", "sharbert", "fornax"}
 	censored := text

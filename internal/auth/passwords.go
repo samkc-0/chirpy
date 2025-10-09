@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-
 	"github.com/alexedwards/argon2id"
 )
 

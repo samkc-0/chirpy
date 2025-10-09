@@ -16,6 +16,7 @@ func respondWithJSON(w http.ResponseWriter, payload interface{}, status int) {
 	if err != nil {
 		log.Fatalf("Could not even marshal the json: %s", err)
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(status)
 	w.Write(dat)

@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -26,6 +27,7 @@ type apiConfig struct {
 	fileServerHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	secret         string
 }
 
 type User struct {
@@ -60,6 +62,7 @@ func main() {
 		fileServerHits: atomic.Int32{},
 		db:             dbQueries,
 		platform:       os.Getenv("PLATFORM"),
+		secret:         os.Getenv("JWT_SECRET"),
 	}
 
 	fileServerHandler := http.FileServer(http.Dir(staticFilesRoot))
@@ -160,10 +163,15 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email            string `json:"email"`
+		Password         string `json:"password"`
+		ExpiresInSeconds int    `json:"expires_in_seconds"`
 	}
-	type result = User
+
+	type response struct {
+		User
+		Token string `json:"token"`
+	}
 
 	decoder := json.NewDecoder(req.Body)
 	params := parameters{}
@@ -188,12 +196,24 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 		respondWithError(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
+	expiry := 1 * time.Hour
+	if params.ExpiresInSeconds != 0 {
+		expiry = time.Duration(params.ExpiresInSeconds) * time.Second
+	}
+	token, err := auth.MakeJWT(user.ID, cfg.secret, expiry)
 
-	respondWithJSON(w, User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
+	if err != nil {
+		respondWithError(w, "failed to create token", http.StatusInternalServerError)
+	}
+
+	respondWithJSON(w, response{
+		User: User{
+			ID:        user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email:     user.Email,
+		},
+		Token: token,
 	}, http.StatusOK)
 }
 
@@ -212,8 +232,21 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
 		return
 	}
+	token := auth.GetBearerToken(req.Header)
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+
+	if err != nil {
+		respondWithError(w, "Bad token", http.StatusBadRequest)
+		return
+	}
 
 	// validate the chirp
+	user, err := cfg.db.GetUser(req.Context(), userID)
+	if err != nil {
+		respondWithError(w, "Something went wrong", http.StatusInternalServerError)
+		return
+	}
+
 	if len(params.Body) > 140 {
 		respondWithJSON(w, response{Valid: false}, http.StatusBadRequest)
 		return
@@ -224,7 +257,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 	// add the chirp to the db
 	chirpParams := database.CreateChirpParams{
 		Body:   cleanedBody,
-		UserID: params.UserID,
+		UserID: user.ID,
 	}
 	chirp, err := cfg.db.CreateChirp(req.Context(), chirpParams)
 	if err != nil {

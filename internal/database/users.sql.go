@@ -87,3 +87,65 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	)
 	return i, err
 }
+
+const updateUserEmail = `-- name: UpdateUserEmail :one
+update users
+set email = $2
+where id = $1
+returning id, created_at, updated_at, email
+`
+
+type UpdateUserEmailParams struct {
+	ID    uuid.UUID
+	Email string
+}
+
+type UpdateUserEmailRow struct {
+	ID        uuid.UUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	Email     string
+}
+
+func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (UpdateUserEmailRow, error) {
+	row := q.db.QueryRowContext(ctx, updateUserEmail, arg.ID, arg.Email)
+	var i UpdateUserEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+	)
+	return i, err
+}
+
+const updateUserPassword = `-- name: UpdateUserPassword :one
+update users
+set hashed_password = $2
+where id = $1
+returning id, created_at, updated_at, email
+`
+
+type UpdateUserPasswordParams struct {
+	ID             uuid.UUID
+	HashedPassword string
+}
+
+type UpdateUserPasswordRow struct {
+	ID        uuid.UUID
+	CreatedAt sql.NullTime
+	UpdatedAt sql.NullTime
+	Email     string
+}
+
+func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error) {
+	row := q.db.QueryRowContext(ctx, updateUserPassword, arg.ID, arg.HashedPassword)
+	var i UpdateUserPasswordRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+	)
+	return i, err
+}

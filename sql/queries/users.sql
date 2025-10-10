@@ -14,3 +14,16 @@ select * from users where email = $1 limit 1;
 
 -- name: GetUser :one
 select * from users where id = $1 limit 1;
+
+
+-- name: UpdateUserEmail :one
+update users
+set email = $2
+where id = $1
+returning id, created_at, updated_at, email;
+
+-- name: UpdateUserPassword :one
+update users
+set hashed_password = $2
+where id = $1
+returning id, created_at, updated_at, email;

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -75,6 +76,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", checkReadiness)
 	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
+	mux.HandleFunc("PUT /api/users", cfg.handlerUpdateUser)
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
 	mux.HandleFunc("POST /api/refresh", cfg.handlerRefresh)
 	mux.HandleFunc("POST /api/revoke", cfg.handlerRevoke)
@@ -163,6 +165,74 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 	userCreated := User{ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt, Email: user.Email}
 	respondWithJSON(w, userCreated, http.StatusCreated)
 	return
+}
+
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, req *http.Request) {
+	token := auth.GetBearerToken(req.Header)
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	type parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	params := parameters{}
+	decoder := json.NewDecoder(req.Body)
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, "invalid resonse body", http.StatusBadRequest)
+		return
+	}
+
+	if params.Email != "" && !validateEmail(params.Email) {
+		respondWithError(w, "invalid email", http.StatusBadRequest)
+		return
+	}
+	if params.Password != "" && !validatePassword(params.Password) {
+		respondWithError(w, "invalid password", http.StatusBadRequest)
+		return
+	}
+
+	var userOut database.UpdateUserEmailRow
+	if params.Email != "" {
+		user, err := cfg.db.UpdateUserEmail(req.Context(), database.UpdateUserEmailParams{
+			ID:    userID,
+			Email: params.Email,
+		})
+		if err != nil {
+			respondWithError(w, "failed to update email", http.StatusInternalServerError)
+			return
+		}
+		userOut = user
+	}
+
+	if params.Password != "" {
+		hashedPassword, err := auth.HashPassword(params.Password)
+		if err != nil {
+			respondWithError(w, "failed to hash password", http.StatusInternalServerError)
+			return
+		}
+		_, err = cfg.db.UpdateUserPassword(req.Context(), database.UpdateUserPasswordParams{
+			ID:             userID,
+			HashedPassword: hashedPassword,
+		})
+		if err != nil {
+			respondWithError(w, "failed to update password", http.StatusInternalServerError)
+			return
+		}
+
+	}
+
+	respondWithJSON(w, User{
+		ID:        userOut.ID,
+		CreatedAt: userOut.CreatedAt,
+		UpdatedAt: userOut.UpdatedAt,
+		Email:     userOut.Email,
+	}, http.StatusOK)
 }
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
@@ -388,4 +458,12 @@ func censor(text string) string {
 
 func capitalize(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+func validateEmail(email string) bool {
+	return regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,4}$`).MatchString(email)
+}
+
+func validatePassword(password string) bool {
+	return true
 }

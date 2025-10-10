@@ -151,3 +151,31 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	)
 	return i, err
 }
+
+const updgradeUser = `-- name: UpdgradeUser :one
+update users
+set is_chirpy_red = true
+where id = $1
+returning id, created_at, updated_at, email, is_chirpy_red
+`
+
+type UpdgradeUserRow struct {
+	ID          uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	Email       string
+	IsChirpyRed sql.NullBool
+}
+
+func (q *Queries) UpdgradeUser(ctx context.Context, id uuid.UUID) (UpdgradeUserRow, error) {
+	row := q.db.QueryRowContext(ctx, updgradeUser, id)
+	var i UpdgradeUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.IsChirpyRed,
+	)
+	return i, err
+}

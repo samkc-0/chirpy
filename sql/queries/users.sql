@@ -27,3 +27,9 @@ update users
 set hashed_password = $2
 where id = $1
 returning id, created_at, updated_at, email;
+
+-- name: UpdgradeUser :one
+update users
+set is_chirpy_red = true
+where id = $1
+returning id, created_at, updated_at, email, is_chirpy_red;

@@ -381,12 +381,35 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, req *http.Reques
 }
 
 func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request) {
+	authorID := req.URL.Query().Get("author_id")
 	type response = []Chirp
-	chirps, err := cfg.db.GetAllChirps(req.Context())
-	if err != nil {
-		respondWithError(w, "Could not get all chirps", http.StatusInternalServerError)
-		return
+
+	var chirps []database.Chirp
+	var err error
+
+	parsedAuthorID := uuid.Nil
+	if authorID != "" {
+		parsedAuthorID, err = uuid.Parse(authorID)
+		if err != nil {
+			respondWithError(w, "malformed author ID", http.StatusInternalServerError)
+			return
+		}
 	}
+
+	if parsedAuthorID != uuid.Nil {
+		chirps, err = cfg.db.GetChirpsByAuthor(req.Context(), parsedAuthorID)
+		if err != nil {
+			respondWithError(w, "Could not get all chirps by given author", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		chirps, err = cfg.db.GetAllChirps(req.Context())
+		if err != nil {
+			respondWithError(w, "Could not get all chirps", http.StatusInternalServerError)
+			return
+		}
+	}
+
 	result := response{}
 	for _, chirp := range chirps {
 		result = append(result, Chirp{

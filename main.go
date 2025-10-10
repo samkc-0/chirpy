@@ -84,6 +84,7 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", cfg.handlerGetChirps)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.handlerGetChirpByID)
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
+	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", cfg.handlerDeleteChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -389,13 +390,13 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 
 	type response = Chirp
 
-	chirp_id, err := uuid.Parse(req.PathValue("chirp_id"))
+	chirpID, err := uuid.Parse(req.PathValue("chirp_id"))
 	if err != nil {
 		respondWithError(w, "Invalid chirp ID", http.StatusBadRequest)
 		return
 	}
 
-	chirp, err := cfg.db.GetChirp(req.Context(), chirp_id)
+	chirp, err := cfg.db.GetChirp(req.Context(), chirpID)
 	if err != nil {
 		respondWithError(w, "Chirp not found", http.StatusNotFound)
 		return
@@ -409,6 +410,42 @@ func (cfg *apiConfig) handlerGetChirpByID(w http.ResponseWriter, req *http.Reque
 		UserID:    chirp.UserID,
 		Valid:     true,
 	}, http.StatusOK)
+}
+
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, req *http.Request) {
+	token := auth.GetBearerToken(req.Header)
+	userID, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, "invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	chirpID, err := uuid.Parse(req.PathValue("chirp_id"))
+	if err != nil {
+		respondWithError(w, "Invalid chirp ID", http.StatusBadRequest)
+		return
+	}
+
+	chirp, err := cfg.db.GetChirp(req.Context(), chirpID)
+	if err != nil {
+		respondWithError(w, "Chirp not found", http.StatusNotFound)
+		return
+	}
+
+	if chirp.UserID != userID {
+		respondWithError(w, "invalid credentials", http.StatusForbidden)
+		return
+	}
+
+	err = cfg.db.DeleteChirp(req.Context(), database.DeleteChirpParams{
+		ID:     chirpID,
+		UserID: userID,
+	})
+
+	if err != nil {
+		respondWithError(w, "Could not delete chirp", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, req *http.Request) {
@@ -465,5 +502,8 @@ func validateEmail(email string) bool {
 }
 
 func validatePassword(password string) bool {
+	if password == "" {
+		return false
+	}
 	return true
 }

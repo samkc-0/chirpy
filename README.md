@@ -29,12 +29,14 @@ A Twitter-like microblogging platform built with Go, featuring user authenticati
 ## Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd chirpy
 ```
 
 2. Install dependencies:
+
 ```bash
 go mod download
 ```
@@ -42,12 +44,14 @@ go mod download
 3. Set up your environment variables (see Configuration section)
 
 4. Run database migrations:
+
 ```bash
 # Using goose or your preferred migration tool
 goose -dir sql/schema up
 ```
 
 5. Start the server:
+
 ```bash
 go run main.go
 ```
@@ -75,9 +79,11 @@ POLKA_KEY=your-payment-api-key
 ## API Endpoints
 
 ### Health Check
+
 - `GET /api/healthz` - Server health check
 
 ### User Management
+
 - `POST /api/users` - Create a new user
 - `PUT /api/users` - Update user profile (requires authentication)
 - `POST /api/login` - User login
@@ -85,24 +91,29 @@ POLKA_KEY=your-payment-api-key
 - `POST /api/revoke` - Revoke refresh token
 
 ### Chirp Management
+
 - `GET /api/chirps` - Get all chirps (optional `author_id` query parameter)
 - `GET /api/chirps/{chirp_id}` - Get specific chirp by ID
 - `POST /api/chirps` - Create a new chirp (requires authentication)
 - `DELETE /api/chirps/{chirp_id}` - Delete chirp (requires authentication, owner only)
 
 ### Payment Integration
+
 - `POST /api/polka/webhooks` - Payment webhook for Chirpy Red upgrades
 
 ### Admin Endpoints
+
 - `GET /admin/metrics` - View server metrics
 - `POST /admin/reset` - Reset metrics and clear all users (dev only)
 
 ### Static Files
+
 - `GET /app/*` - Serve static files (with hit counter)
 
 ## API Usage Examples
 
 ### User Registration
+
 ```bash
 curl -X POST http://localhost:8080/api/users \
   -H "Content-Type: application/json" \
@@ -110,6 +121,7 @@ curl -X POST http://localhost:8080/api/users \
 ```
 
 ### User Login
+
 ```bash
 curl -X POST http://localhost:8080/api/login \
   -H "Content-Type: application/json" \
@@ -117,6 +129,7 @@ curl -X POST http://localhost:8080/api/login \
 ```
 
 ### Create Chirp
+
 ```bash
 curl -X POST http://localhost:8080/api/chirps \
   -H "Content-Type: application/json" \
@@ -125,11 +138,13 @@ curl -X POST http://localhost:8080/api/chirps \
 ```
 
 ### Get All Chirps
+
 ```bash
 curl http://localhost:8080/api/chirps
 ```
 
 ### Get Chirps by Author
+
 ```bash
 curl "http://localhost:8080/api/chirps?author_id=USER_UUID"
 ```
@@ -137,6 +152,7 @@ curl "http://localhost:8080/api/chirps?author_id=USER_UUID"
 ## Data Models
 
 ### User
+
 ```json
 {
   "id": "uuid",
@@ -148,6 +164,7 @@ curl "http://localhost:8080/api/chirps?author_id=USER_UUID"
 ```
 
 ### Chirp
+
 ```json
 {
   "id": "uuid",
@@ -168,15 +185,17 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ```
 
 ### Token Types
+
 - **Access Token**: Short-lived (1 hour by default) for API access
 - **Refresh Token**: Long-lived for obtaining new access tokens
 
 ## Content Filtering
 
 The API automatically filters inappropriate content by replacing taboo words with asterisks:
-- kerfuffle → ****
-- sharbert → ****
-- fornax → ****
+
+- kerfuffle → \*\*\*\*
+- sharbert → \*\*\*\*
+- fornax → \*\*\*\*
 
 ## Chirpy Red Premium
 
@@ -185,6 +204,7 @@ Users can upgrade to Chirpy Red premium status through webhook integration. The 
 ## Database Schema
 
 ### Users Table
+
 - `id` (UUID, Primary Key)
 - `created_at` (Timestamp)
 - `updated_at` (Timestamp)
@@ -193,6 +213,7 @@ Users can upgrade to Chirpy Red premium status through webhook integration. The 
 - `is_chirpy_red` (Boolean)
 
 ### Chirps Table
+
 - `id` (UUID, Primary Key)
 - `created_at` (Timestamp)
 - `updated_at` (Timestamp)
@@ -200,6 +221,7 @@ Users can upgrade to Chirpy Red premium status through webhook integration. The 
 - `user_id` (UUID, Foreign Key)
 
 ### Refresh Tokens Table
+
 - `token` (Text, Primary Key)
 - `user_id` (UUID, Foreign Key)
 - `expires_at` (Timestamp)
@@ -210,11 +232,13 @@ Users can upgrade to Chirpy Red premium status through webhook integration. The 
 ## Development
 
 ### Running Tests
+
 ```bash
 go test ./...
 ```
 
 ### Database Migrations
+
 The project uses SQLC for database operations. To regenerate database code after schema changes:
 
 ```bash
@@ -222,6 +246,7 @@ sqlc generate
 ```
 
 ### Project Structure
+
 ```
 chirpy/
 ├── main.go                 # Main application entry point
@@ -247,6 +272,7 @@ The API returns consistent error responses in JSON format:
 ```
 
 Common HTTP status codes:
+
 - `200` - Success
 - `201` - Created
 - `400` - Bad Request
@@ -255,14 +281,3 @@ Common HTTP status codes:
 - `404` - Not Found
 - `500` - Internal Server Error
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.

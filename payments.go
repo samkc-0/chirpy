@@ -1,6 +1,7 @@
 package main
 
 import (
+	"chirpy/internal/auth"
 	"encoding/json"
 	"net/http"
 
@@ -15,6 +16,13 @@ type PaymentEvent struct {
 }
 
 func (cfg *apiConfig) handlePayment(w http.ResponseWriter, req *http.Request) {
+
+	apiKey := auth.GetAPIKey(req.Header)
+	if apiKey != cfg.paymentAPIKey {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	decoder := json.NewDecoder(req.Body)
 	params := PaymentEvent{}
 

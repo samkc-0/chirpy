@@ -30,6 +30,7 @@ type apiConfig struct {
 	platform       string
 	secret         string
 	jwtExpiry      time.Duration
+	paymentAPIKey  string
 }
 
 type User struct {
@@ -67,6 +68,7 @@ func main() {
 		platform:       os.Getenv("PLATFORM"),
 		secret:         os.Getenv("JWT_SECRET"),
 		jwtExpiry:      1 * time.Hour,
+		paymentAPIKey:  os.Getenv("POLKA_KEY"),
 	}
 
 	fileServerHandler := http.FileServer(http.Dir(staticFilesRoot))

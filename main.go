@@ -87,7 +87,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", cfg.handlerDeleteChirp)
 
-	mux.HandleFunc("POST /api/polka/webhooks", cfg.handlerDeleteChirp)
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.handlePayment)
 
 	server := &http.Server{
 		Addr:    ":" + port,

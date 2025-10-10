@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -420,6 +421,17 @@ func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, req *http.Request)
 			UserID:    chirp.UserID,
 		})
 	}
+
+	if req.URL.Query().Get("sort") == "asc" {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.Time.Before(result[j].CreatedAt.Time)
+		})
+	} else if req.URL.Query().Get("sort") == "desc" {
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].CreatedAt.Time.After(result[j].CreatedAt.Time)
+		})
+	}
+
 	respondWithJSON(w, result, http.StatusOK)
 }
 

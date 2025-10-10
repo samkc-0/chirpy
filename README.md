@@ -92,7 +92,7 @@ POLKA_KEY=your-payment-api-key
 
 ### Chirp Management
 
-- `GET /api/chirps` - Get all chirps (optional `author_id` query parameter)
+- `GET /api/chirps` - Get all chirps (optional `author_id` and `sort` query parameters)
 - `GET /api/chirps/{chirp_id}` - Get specific chirp by ID
 - `POST /api/chirps` - Create a new chirp (requires authentication)
 - `DELETE /api/chirps/{chirp_id}` - Delete chirp (requires authentication, owner only)
@@ -147,6 +147,19 @@ curl http://localhost:8080/api/chirps
 
 ```bash
 curl "http://localhost:8080/api/chirps?author_id=USER_UUID"
+```
+
+### Get Chirps with Sorting
+
+```bash
+# Get chirps sorted by creation date (ascending - oldest first)
+curl "http://localhost:8080/api/chirps?sort=asc"
+
+# Get chirps sorted by creation date (descending - newest first)
+curl "http://localhost:8080/api/chirps?sort=desc"
+
+# Get chirps by author with sorting
+curl "http://localhost:8080/api/chirps?author_id=USER_UUID&sort=desc"
 ```
 
 ## Data Models

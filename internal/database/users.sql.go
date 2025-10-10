@@ -18,7 +18,7 @@ insert into users (
   hashed_password
 ) values (
   $1, $2
-) returning id, created_at, updated_at, email
+) returning id, created_at, updated_at, email, is_chirpy_red
 `
 
 type CreateUserParams struct {
@@ -27,10 +27,11 @@ type CreateUserParams struct {
 }
 
 type CreateUserRow struct {
-	ID        uuid.UUID
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-	Email     string
+	ID          uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	Email       string
+	IsChirpyRed sql.NullBool
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
@@ -41,6 +42,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -94,7 +96,7 @@ const updateUserEmail = `-- name: UpdateUserEmail :one
 update users
 set email = $2
 where id = $1
-returning id, created_at, updated_at, email
+returning id, created_at, updated_at, email, is_chirpy_red
 `
 
 type UpdateUserEmailParams struct {
@@ -103,10 +105,11 @@ type UpdateUserEmailParams struct {
 }
 
 type UpdateUserEmailRow struct {
-	ID        uuid.UUID
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-	Email     string
+	ID          uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	Email       string
+	IsChirpyRed sql.NullBool
 }
 
 func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) (UpdateUserEmailRow, error) {
@@ -117,6 +120,7 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
@@ -125,7 +129,7 @@ const updateUserPassword = `-- name: UpdateUserPassword :one
 update users
 set hashed_password = $2
 where id = $1
-returning id, created_at, updated_at, email
+returning id, created_at, updated_at, email, is_chirpy_red
 `
 
 type UpdateUserPasswordParams struct {
@@ -134,10 +138,11 @@ type UpdateUserPasswordParams struct {
 }
 
 type UpdateUserPasswordRow struct {
-	ID        uuid.UUID
-	CreatedAt sql.NullTime
-	UpdatedAt sql.NullTime
-	Email     string
+	ID          uuid.UUID
+	CreatedAt   sql.NullTime
+	UpdatedAt   sql.NullTime
+	Email       string
+	IsChirpyRed sql.NullBool
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (UpdateUserPasswordRow, error) {
@@ -148,18 +153,19 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Email,
+		&i.IsChirpyRed,
 	)
 	return i, err
 }
 
-const updgradeUser = `-- name: UpdgradeUser :one
+const upgradeUser = `-- name: UpgradeUser :one
 update users
 set is_chirpy_red = true
 where id = $1
 returning id, created_at, updated_at, email, is_chirpy_red
 `
 
-type UpdgradeUserRow struct {
+type UpgradeUserRow struct {
 	ID          uuid.UUID
 	CreatedAt   sql.NullTime
 	UpdatedAt   sql.NullTime
@@ -167,9 +173,9 @@ type UpdgradeUserRow struct {
 	IsChirpyRed sql.NullBool
 }
 
-func (q *Queries) UpdgradeUser(ctx context.Context, id uuid.UUID) (UpdgradeUserRow, error) {
-	row := q.db.QueryRowContext(ctx, updgradeUser, id)
-	var i UpdgradeUserRow
+func (q *Queries) UpgradeUser(ctx context.Context, id uuid.UUID) (UpgradeUserRow, error) {
+	row := q.db.QueryRowContext(ctx, upgradeUser, id)
+	var i UpgradeUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedAt,

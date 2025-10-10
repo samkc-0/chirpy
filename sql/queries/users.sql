@@ -4,7 +4,7 @@ insert into users (
   hashed_password
 ) values (
   $1, $2
-) returning id, created_at, updated_at, email;
+) returning id, created_at, updated_at, email, is_chirpy_red;
 
 -- name: DeleteAllUsers :exec
 delete from users;
@@ -20,15 +20,15 @@ select * from users where id = $1 limit 1;
 update users
 set email = $2
 where id = $1
-returning id, created_at, updated_at, email;
+returning id, created_at, updated_at, email, is_chirpy_red;
 
 -- name: UpdateUserPassword :one
 update users
 set hashed_password = $2
 where id = $1
-returning id, created_at, updated_at, email;
+returning id, created_at, updated_at, email, is_chirpy_red;
 
--- name: UpdgradeUser :one
+-- name: UpgradeUser :one
 update users
 set is_chirpy_red = true
 where id = $1

@@ -33,10 +33,11 @@ type apiConfig struct {
 }
 
 type User struct {
-	ID        uuid.UUID    `json:"id"`
-	CreatedAt sql.NullTime `json:"created_at"`
-	UpdatedAt sql.NullTime `json:"updated_at"`
-	Email     string       `json:"email"`
+	ID          uuid.UUID    `json:"id"`
+	CreatedAt   sql.NullTime `json:"created_at"`
+	UpdatedAt   sql.NullTime `json:"updated_at"`
+	Email       string       `json:"email"`
+	IsChirpyRed bool         `json:"is_chirpy_red"`
 }
 
 type Chirp struct {
@@ -85,6 +86,8 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.handlerGetChirpByID)
 	mux.HandleFunc("POST /api/chirps", cfg.handlerCreateChirp)
 	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", cfg.handlerDeleteChirp)
+
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.handlerDeleteChirp)
 
 	server := &http.Server{
 		Addr:    ":" + port,
@@ -163,7 +166,14 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	userCreated := User{ID: user.ID, CreatedAt: user.CreatedAt, UpdatedAt: user.UpdatedAt, Email: user.Email}
+	userCreated := User{
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed.Bool,
+	}
+
 	respondWithJSON(w, userCreated, http.StatusCreated)
 	return
 }
@@ -229,10 +239,11 @@ func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, req *http.Request
 	}
 
 	respondWithJSON(w, User{
-		ID:        userOut.ID,
-		CreatedAt: userOut.CreatedAt,
-		UpdatedAt: userOut.UpdatedAt,
-		Email:     userOut.Email,
+		ID:          userOut.ID,
+		CreatedAt:   userOut.CreatedAt,
+		UpdatedAt:   userOut.UpdatedAt,
+		Email:       userOut.Email,
+		IsChirpyRed: userOut.IsChirpyRed.Bool,
 	}, http.StatusOK)
 }
 
@@ -297,10 +308,11 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, req *http.Request) {
 
 	respondWithJSON(w, response{
 		User: User{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Email:     user.Email,
+			ID:          user.ID,
+			CreatedAt:   user.CreatedAt,
+			UpdatedAt:   user.UpdatedAt,
+			Email:       user.Email,
+			IsChirpyRed: user.IsChirpyRed.Bool,
 		},
 		Token:        token,
 		RefreshToken: rt,
